@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+       body{
+        background-image: url(./img/background.webp);
+    }
+    
+    #gameRoom {
+        border: 1px solid;
+        /* solid는 겉에 선크기 지정 */
+        background-image: url(./img/tetris_background1.jpg);
+    }
+
+    div {
+        float: left;
+        margin: 0px 300px auto;
+        /* background-color: rgb(148, 15, 102); */
+    }
+</style>
+
+<body>
+    <div>
+        <canvas id="gameRoom" width="400" height="800"></canvas>
+    </div>
+</body>
+
+</html>
+<script>
+    const gameRoom = document.getElementById('gameRoom');
+    var tool = gameRoom.getContext('2d');
+
+    class background { // 게임 배경
+        nowScore = 0;
+
+        scoreDraw() { // 점수판
+            tool.strokeStyle = "rgb(25, 255, 213)";
+            tool.fillStyle = "rgb(25, 255, 213)"
+            tool.font = '30px bold'
+            tool.fillText("Point : " + this.nowScore, 20, 40)
+            tool.strokeText("Point : " + this.nowScore, 20, 40)
+        }
+
+        gameoverDraw() { // 게임 종료 화면
+            tool.font = '60px bold'
+            tool.fillStyle = "rgb(255, 25, 25)"
+            tool.fillText("Game Over", 50, 400)
+        }
+    }
+
+
+    // 사각형 한조각 클래스
+    class Piece {
+        x = 0;
+        y = 0;
+        len = 40;
+        pFlag = false; // 다시 그릴지 말지 결정할 플래그
+        nowColor = 'tomato'
+        drawPiece() {
+            if (!this.pFlag) {
+                tool.beginPath();
+                tool.strokeStyle = 'black';
+                tool.fillStyle = this.nowColor;
+                tool.fillRect(this.x, this.y, this.len, this.len);
+                tool.strokeRect(this.x, this.y, this.len, this.len);
+                tool.stroke();
+                tool.fill();
+            }
+        }
+    }
+
+    // 가로로 뽑을지 세로로 뽑을지 랜덤수 생성
+    const randomFlag = () => {
+        let num = Math.floor(Math.random() * 2);
+        if (num === 1) {
+            return true;
+        }
+        return false;
+    }
+
+    // 모양잡기전 공통메서드 묶어놓은 클래스
+    class MyType {
+        p1 = new Piece();
+        p2 = new Piece();
+        p3 = new Piece();
+        p4 = new Piece();
+
+        x = 200; // 가운데에서 출발
+        y = 0;
+
+        setColor(color) {
+            this.p1.nowColor = color;
+            this.p2.nowColor = color;
+            this.p3.nowColor = color;
+            this.p4.nowColor = color;
+
+        }
+
+        drawI() {
+            this.p1.drawPiece();
+            this.p2.drawPiece();
+            this.p3.drawPiece();
+            this.p4.drawPiece();
+        }
+
+        rotateChk(){ // 회전시 다른 객체의 범위와 겹치는지 체크
+            let pArr = [this.p2, this.p3, this.p4];
+            let newX = 0;
+            let newY = 0;
+            let m = new MyType();
+            let tempArr = [m.p2,m.p3,m.p4];
+            m.p1.x = this.x;
+            m.p2.y = this.y;
+            for (let j = 0; j < pArr.length; j++) {
+                for (let i = -40; i <= 40; i += 40) {
+                    if ((this.p1.x + i) == (pArr[j].x)) {
+                        newY = this.p1.y + i;
+                        if ((this.p1.y) == (pArr[j].y)) {
+                            newX = this.p1.x;
+                        } else if ((this.p1.y - 40) == (pArr[j].y)) {
+                            newX = this.p1.x + 40;
+                        } else if ((this.p1.y + 40) == (pArr[j].y)) {
+                            newX = this.p1.x - 40;
+                        }
+                    }
+                }
+                tempArr[j].y = newY;
+                tempArr[j].x = newX;
+            }
+            let t = new tempType(m);
+            if(crashBound(t, fullArr, pieceBound)){
+                return true;
+            }
+            return false;
+
+
+        }
+
+
+        rotate(p1, p2, p3, p4) {
+            let pArr = [p2, p3, p4];
+            let newX = 0;
+            let newY = 0;
+            // p1기준으로 40만큼의 반경에 다른 조각들 감지확인후 시계방향 회전
+            // console.log(p1.x + "/" + p1.y);
+            for (let j = 0; j < pArr.length; j++) {
+                for (let i = -40; i <= 40; i += 40) {
+                    if ((p1.x + i) == (pArr[j].x)) {
+                        newY = p1.y + i;
+                        if ((p1.y) == (pArr[j].y)) {
+                            newX = p1.x;
+                        } else if ((p1.y - 40) == (pArr[j].y)) {
+                            newX = p1.x + 40;
+                        } else if ((p1.y + 40) == (pArr[j].y)) {
+                            newX = p1.x - 40;
+                        }
+                    }
+                }
+                // for문 끝날때 값 바꿈
+                pArr[j].y = newY;
+                pArr[j].x = newX;
+            }
+
+        }
+
+        nowRetate(rCnt) { // 회전수 적용할 함수
+            let num = rCnt % 4;
+            switch (num) {
+                case 1:
+                    this.rotate(this.p1, this.p2, this.p3, this.p4);
+                    break;
+                case 2:
+                    this.rotate(this.p1, this.p2, this.p3, this.p4);
+                    this.rotate(this.p1, this.p2, this.p3, this.p4);
+                    break;
+                case 3:
+                    this.rotate(this.p1, this.p2, this.p3, this.p4);
+                    this.rotate(this.p1, this.p2, this.p3, this.p4);
+                    this.rotate(this.p1, this.p2, this.p3, this.p4);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+    }
+
+    class tempType{ // 임시 타입
+        m = new MyType();
+
+        constructor(tempM){
+            this.m = tempM;
+        }
+        
+    }
+
+    // I모양 
+    class TypeI {
+
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'lightblue'; // 색지정
+
+        setWidth() { // 가로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x - 40;
+            this.m.p3.x = this.m.p1.x + 40;
+            this.m.p4.x = this.m.p3.x + 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y;
+            this.m.p3.y = this.m.p1.y;
+            this.m.p4.y = this.m.p1.y;
+
+            this.m.setColor(this.tColor);
+            this.m.drawI();
+        }
+        setHeight() { // 세로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x;
+            this.m.p3.x = this.m.p1.x;
+            this.m.p4.x = this.m.p1.x;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y - 40;
+            this.m.p3.y = this.m.p1.y + 40;
+            this.m.p4.y = this.m.p3.y + 40;
+            this.m.setColor(this.tColor);
+            this.m.drawI();
+        }
+
+    }
+
+    // l모양
+    class TypeL {
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'rgb(255, 139, 77)'; // 색지정
+
+        standard() { // 가운데 중심 기준으로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x - 40;
+            this.m.p3.x = this.m.p1.x - 40;
+            this.m.p4.x = this.m.p1.x + 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y;
+            this.m.p3.y = this.m.p1.y + 40;
+            this.m.p4.y = this.m.p1.y;
+
+            this.m.nowRetate(rotateCnt);
+
+        }
+    }
+
+    // J모양
+    class TypeJ {
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'rgb(0, 255, 195)'; // 색지정
+
+        standard() { // 가운데 중심 기준으로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x - 40;
+            this.m.p3.x = this.m.p1.x + 40;
+            this.m.p4.x = this.m.p1.x + 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y;
+            this.m.p3.y = this.m.p1.y + 40;
+            this.m.p4.y = this.m.p1.y;
+
+            this.m.nowRetate(rotateCnt); // 전역변수라 인자값을 안줘도 가능하다..
+        }
+    }
+
+    // O모양 : 예외적으로 메서드 다름..
+    class TypeO {
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'rgb(255, 248, 41)'; // 색지정
+
+        setPoint() { // 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x + 40;
+            this.m.p3.x = this.m.p2.x;
+            this.m.p4.x = this.m.p3.x - 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y;
+            this.m.p3.y = this.m.p2.y + 40;
+            this.m.p4.y = this.m.p3.y;
+
+            this.m.setColor(this.tColor);
+            this.m.drawI();
+        }
+    }
+
+    // S모양
+    class TypeS {
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'rgb(77, 255, 92)'; // 색지정
+
+        standard() { // 가운데 중심 기준으로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x;
+            this.m.p3.x = this.m.p1.x - 40;
+            this.m.p4.x = this.m.p1.x + 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y + 40;
+            this.m.p3.y = this.m.p1.y + 40;
+            this.m.p4.y = this.m.p1.y;
+
+            this.m.nowRetate(rotateCnt);
+        }
+    }
+
+    // T모양
+    class TypeT {
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'rgb(154, 77, 255)'; // 색지정
+
+        standard() { // 가운데 중심 기준으로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x - 40;
+            this.m.p3.x = this.m.p1.x;
+            this.m.p4.x = this.m.p1.x + 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y;
+            this.m.p3.y = this.m.p1.y + 40;
+            this.m.p4.y = this.m.p1.y;
+
+            this.m.nowRetate(rotateCnt);
+        }
+    }
+
+    // Z모양
+    class TypeZ {
+        m = new MyType(); // 공통항목 객체 생성
+
+        tColor = 'rgb(255, 77, 77)'; // 색지정
+
+        standard() { // 가운데 중심 기준으로 그리기
+            this.m.p1.x = this.m.x;
+            this.m.p2.x = this.m.p1.x - 40;
+            this.m.p3.x = this.m.p1.x;
+            this.m.p4.x = this.m.p1.x + 40;
+
+            this.m.p1.y = this.m.y;
+            this.m.p2.y = this.m.p1.y;
+            this.m.p3.y = this.m.p1.y + 40;
+            this.m.p4.y = this.m.p1.y + 40;
+
+            this.m.nowRetate(rotateCnt);
+        }
+    }
+
+    var typeArr = []; // 클래스 랜덤으로 뽑기 위해 저장하는 배열
+
+    const innerArr = () => { // 배열에 객체 저장
+        let i = new TypeI();
+        let l = new TypeL();
+        let j = new TypeJ();
+        let o = new TypeO();
+        let s = new TypeS();
+        let t = new TypeT();
+        let z = new TypeZ();
+        typeArr = [o, i, l, j, s, t, z];
+    }
+
+
+
+    const randomIdx = () => { // 0-6중에서 랜덤하게 인덱스 뽑는 함수
+        return Math.floor(Math.random() * 7);
+    }
+
+    // 한조각의 충돌범위  한조 각?
+    function pieceBound(p1, p2) {
+        if (!p1.pFlag) { // 그리지 않는 객체는 범위에서 제외
+            if (!p2.pFlag) {
+                if ((p1.x < p2.x + p2.len / 2) &&
+                    (p1.x + p1.len / 2 > p2.x - p2.len / 2) &&
+                    (p1.y <= p2.y + p2.len / 2) &&
+                    (p1.y + p1.len / 2 >= p2.y - p2.len / 2)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    const myFloor = { // 바닥 범위 객체
+        x: 0,
+        y: 1200,
+        len: 840
+    }
+
+    const myLeft = { // 왼쪽범위 객체
+        x: -800,
+        y: 0,
+        len: 1640
+    }
+
+    const myRight = { // 오른쪽 범위 객체
+        x: 1160,
+        y: 0,
+        len: 1640
+    }
+
+    // 배열내 객체와 새로 뽑은 객체의 충돌범위 설정
+    function crashBound(t, arr, boundFunction) { // 새로 뽑은 객체와 기존의 배열을 인자값으로 전달
+        let tempCnt = 0;
+        for (v of arr) {
+            if ((boundFunction(t.m.p1, v.m.p1)
+                && boundFunction(t.m.p2, v.m.p1)
+                && boundFunction(t.m.p3, v.m.p1)
+                && boundFunction(t.m.p4, v.m.p1))
+                && (boundFunction(t.m.p1, v.m.p2)
+                    && boundFunction(t.m.p2, v.m.p2)
+                    && boundFunction(t.m.p3, v.m.p2)
+                    && boundFunction(t.m.p4, v.m.p2))
+                && (boundFunction(t.m.p1, v.m.p3)
+                    && boundFunction(t.m.p2, v.m.p3)
+                    && boundFunction(t.m.p3, v.m.p3)
+                    && boundFunction(t.m.p4, v.m.p3))
+                && (boundFunction(t.m.p1, v.m.p4)
+                    && boundFunction(t.m.p2, v.m.p4)
+                    && boundFunction(t.m.p3, v.m.p4)
+                    && boundFunction(t.m.p4, v.m.p4))) { // 충돌이 없을 때 true 충돌이 있다면 false
+                tempCnt++;
+                // console.log(tempCnt+"/"+arr.length);
+            }
+        }
+        if (tempCnt == arr.length) { // 충돌이 없는경우 
+            // console.log("aaa");
+            return true;
+        }
+        return false; // 충돌이 있는경우
+    }
+
+    const reDrawObj = () => { // 멈춘 객체 다시 그려주기
+        b.scoreDraw();
+        for (v of fullArr) {
+            v.m.setColor(v.tColor);
+            v.m.drawI();
+        }
+    }
+
+    // 현재 객체 다시 그려주기
+    const reDrawNowObj = () => {
+        i.m.setColor(i.tColor);
+        i.m.drawI();
+    }
+
+    //test code
+    innerArr(); // 배열생성
+    var idx = randomIdx(); // 랜덤 인덱스 만들기
+    var i = typeArr[idx]; // 랜덤으로 객체 뽑기 (현재 도형)
+    var f = randomFlag(); // 가로인지 세로인지 랜덤으로 뽑기
+
+    var fullArr = []; // 선정된 모든 객체 저장할 배열
+
+    var cnt = 0;
+
+    var rotateCnt = 0; // 회전수 저장할 변수
+
+    var b = new background(); // 게임 배경 객체 생성
+
+    // 내려오게 만들기
+    function fall() {
+        let now = requestAnimationFrame(fall)
+        cnt++;
+        lineClear(); // 줄삭제
+        if (cnt % 2 == 0) { // 기본속도로 낙하
+            if (pieceBound(i.m.p1, myFloor)
+                && pieceBound(i.m.p2, myFloor)
+                && pieceBound(i.m.p3, myFloor)
+                && pieceBound(i.m.p4, myFloor)) {
+                if (fullArr.length != 0) { // 도형이 이미 존재하고 있다면 반복문으로 충돌범위 설정
+                    if (crashBound(i, fullArr, pieceBound)) { // 충돌하면 false 충돌없을때 true이므로 계속 내려옴
+                        tool.clearRect(0, 0, gameRoom.width, gameRoom.height)
+                        reDrawObj(); // 멈춘 객체 다시 그려주기
+                        if (idx == 0) {
+                            i.setPoint();
+                        } else if (idx == 1) {
+                            f ? (i.setWidth()) : (i.setHeight())
+                        } else {
+                            i.standard();
+                            i.m.setColor(i.tColor);
+                            i.m.drawI();
+                        }
+                        reDrawNowObj(); // 현재 객체 다시 그려주기
+                        i.m.y += 5;
+                        objFlag = false;
+                    } else {
+                        if ((i.m.p1.x == 200) && (i.m.p1.y == 0)) { // 도형이 나오자 마자 멈춘 경우
+                            console.log("game over");
+                            b.scoreDraw();
+                            b.gameoverDraw();
+                            cancelAnimationFrame(now);
+                        }
+                        fullArr.push(i); // 배열에 다 내려온 도형객체 저장 : 반복문으로 다시 그리기 해야함.
+                        lineClear(); // 한줄삭제
+                        innerArr();
+                        idx = randomIdx();
+                        i = typeArr[idx];
+                        f = randomFlag();
+                        rotateCnt = 0; // 회전수 초기화
+                    }
+                } else {
+                    tool.clearRect(0, 0, gameRoom.width, gameRoom.height)
+                    b.scoreDraw();
+                    i.m.y += 5;
+                    if (idx == 0) {
+                        i.setPoint();
+                    } else if (idx == 1) {
+                        f ? (i.setWidth()) : (i.setHeight())
+                    } else {
+                        i.standard();
+                        i.m.setColor(i.tColor);
+                        i.m.drawI();
+                    }
+                }
+            } else {
+                fullArr.push(i); // 배열에 다 내려온 도형객체 저장 : 반복문으로 다시 그리기 해야함.
+
+                console.log(i.m.p1.y);
+                innerArr();
+                idx = randomIdx();
+                i = typeArr[idx];
+                f = randomFlag();
+            }
+        }
+
+    }
+
+    fall(); // 게임 시작
+
+    // 줄 지워지면 해당줄 매꾸기
+    // y좌표가 해당줄보다 작다면 +40씩 준다.
+    function replacePeice(yPoint) { // y좌표 인자값으로 받음
+        for (let i = 0; i < fullArr.length; i++) {
+            (yPoint > fullArr[i].m.p1.y) ? (fullArr[i].m.p1.y += 40) : (null);
+            (yPoint > fullArr[i].m.p2.y) ? (fullArr[i].m.p2.y += 40) : (null);
+            (yPoint > fullArr[i].m.p3.y) ? (fullArr[i].m.p3.y += 40) : (null);
+            (yPoint > fullArr[i].m.p4.y) ? (fullArr[i].m.p4.y += 40) : (null);
+        }
+    }
+
+
+    // 한줄 완성 감지...
+    // 한줄완성이란 y좌표가 같은 조각객체가 10개가 되는것.
+    // 새로운 객체의 y좌표가 멈추는 순간 10번째 y좌표가 되는순간을 감지..
+    function lineClear() { // 삭제가 일어난다면 다른 리턴값을 주고 삭제가 된 줄을 다시 채워야함..
+        for (p = 800; p > 0; p -= 40) {
+            let lineCnt = 0;
+            let lineArr = [];
+            for (v = 0; v < fullArr.length; v++) { // call by reference를 위해 for of가 아닌 일반 for문 사용
+                if (p == fullArr[v].m.p1.y) {
+                    lineCnt++;
+                    lineArr.push(fullArr[v].m.p1)
+                }
+                if (p == fullArr[v].m.p2.y) {
+                    lineCnt++;
+                    lineArr.push(fullArr[v].m.p2)
+                }
+                if (p == fullArr[v].m.p3.y) {
+                    lineCnt++;
+                    lineArr.push(fullArr[v].m.p3)
+                }
+                if (p == fullArr[v].m.p4.y) {
+                    lineCnt++;
+                    lineArr.push(fullArr[v].m.p4)
+                }
+            }
+            if ((lineCnt % 10 == 0) && (lineCnt != 0)) { // 10개 채운 경우 peice 객체 삭제해야한다..
+                for (v = 0; v < lineArr.length; v++) { // call by reference를 위해 for of가 아닌 일반 for문 사용
+                    lineArr[v].pFlag = true; // 다시 못그리게 플래그 바꾸기
+                }
+                replacePeice(p); // 빈칸 채우기
+                b.nowScore = parseInt(b.nowScore) + 1000; // 점수증가
+            }
+        }
+    }
+
+    // 이미 있는 객체의 범위를 침범하는가?
+    // canvas 범위를 벗어나는가?
+
+    const chkLeftBound = (obj) => {
+        obj.m.x -= 40;
+        ((pieceBound(i.m.p1, myLeft)
+            && pieceBound(i.m.p2, myLeft)
+            && pieceBound(i.m.p3, myLeft)
+            && pieceBound(i.m.p4, myLeft))) ||
+            (obj.m.x += 40)
+    }
+
+    const chkRightBound = (obj) => {
+        obj.m.x += 40;
+        ((pieceBound(i.m.p1, myRight)
+            && pieceBound(i.m.p2, myRight)
+            && pieceBound(i.m.p3, myRight)
+            && pieceBound(i.m.p4, myRight))) ||
+            (obj.m.x -= 40)
+    }
+
+    const testFloor = { // 바닥 범위 객체
+        x: 0,
+        y: 1200,
+        len: 400
+    }
+
+    // -40만큼 미리 값을 줬을경우 충돌한다면 false : left
+    function preLeftPieceBound(p1, p2) {
+        if (!p1.pFlag) { // 그리지 않는 객체는 범위에서 제외
+            if (!p2.pFlag) {
+                if ((p1.x - p1.len / 2 > p2.x - p2.len / 2) &&
+                    (p1.x - p1.len < p2.x + p2.len / 2) &&
+                    (p1.y <= p2.y + p2.len / 2) &&
+                    (p1.y + p1.len / 2 >= p2.y - p2.len / 2)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // +40만큼 미리 값을 줬을경우 충돌한다면 false : right
+    function preRightPieceBound(p1, p2) {
+        if (!p1.pFlag) { // 그리지 않는 객체는 범위에서 제외
+            if (!p2.pFlag) {
+                if ((p1.x + p1.len / 2 < p2.x + p2.len / 2) &&
+                    (p1.x + p1.len > p2.x - p2.len / 2) &&
+                    (p1.y <= p2.y + p2.len / 2) &&
+                    (p1.y + p1.len / 2 >= p2.y - p2.len / 2)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // +40만큼 미리 값을 줬을경우 충돌한다면 false : down
+    function preDownPieceBound(p1, p2) {
+        if (!p1.pFlag) { // 그리지 않는 객체는 범위에서 제외
+            if (!p2.pFlag) {
+                if ((p1.x < p2.x + p2.len / 2) &&
+                    (p1.x + p1.len / 2 > p2.x - p2.len / 2) &&
+                    (p1.y + p1.len < p2.y + p2.len) &&
+                    (p1.y + p1.len * 2 > p2.y - p2.len)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // 도형객체 움직일 키보드 리스너
+    // 범위 설정 필요..
+    window.addEventListener('keydown', e => {
+        // console.log(e.keyCode);
+        if (e.keyCode == 38) { // up (spin)
+            // 회전시에 범위를 확인하고 보정작업 필요.
+            if (idx == 1) {
+                if(i.m.p1.x == 0){
+                    i.m.x +=40;
+                }else if(i.m.p1.x == 360){
+                    i.m.x -=80;
+                }
+                f = (!f);
+            } else if (idx != 0) {
+                if(i.m.p1.x == 0){
+                    i.m.x +=40;
+                }else if(i.m.p1.x == 360){
+                    i.m.x -=40;
+                }
+                if(i.m.rotateChk()){
+                    rotateCnt++;
+                }
+            }
+        } else if (e.keyCode == 37) { // left
+            if (crashBound(i, fullArr, preLeftPieceBound)) {
+                chkLeftBound(i);
+            }
+        } else if (e.keyCode == 40) { // down
+            if (crashBound(i, fullArr, preDownPieceBound)) {
+                if (i.m.y < 640) {
+                    i.m.y += 40;
+                }
+            }
+        } else if (e.keyCode == 39) { // right
+            if (crashBound(i, fullArr, preRightPieceBound)) {
+                chkRightBound(i);
+            }
+        }
+    })
+
+</script>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://code.jquery.com/jquery-3.6.4.js" integrity="sha256-a9jBBRygX1Bh5lt8GZjXDzyOB+bWve9EiO7tROUtj/E=" crossorigin="anonymous"></script>
+</head>
+<style>
+       body{
+        background-image: url(./img/background.webp);
+    }
+    
+    #gameRoom {
+        border: 1px solid;
+        /* solid는 겉에 선크기 지정 */
+    }
+    div{
+        float: left;
+        margin: 0px 400px auto;
+    }
+
+    canvas {
+        background-image: url(./img/CookieRun_background.jpg);
+    }
+    
+    
+
+</style>
+<body>
+    <div>
+        <canvas id="gameRoom" width="800" height="400">
+        </canvas>
+    </div>
+</body>
+</html>
+
+<script>
+    const gameRoom = $('#gameRoom')[0];
+    var tool = gameRoom.getContext("2d");
+
+
+    // 공 객체
+    var myball = {
+        x : 15,
+        y : 385,
+        radi : 15,
+        ballDraw() {
+            tool.strokeStyle = 'black';
+            tool.fillStyle = 'lightgreen';
+            tool.lineWidth = "1";
+            tool.beginPath();
+            tool.arc(this.x,this.y,this.radi,0,(Math.PI/180)*360,false);
+            tool.fill();
+            tool.stroke();
+        }
+    }
+
+    var jumpCnt = 0; // 점프수 카운트할 변수
+
+    // 키 눌렀을때 
+    window.addEventListener("keydown",e => {
+        // console.log(e.keyCode)
+        if(e.keyCode == 32){ // space keycode
+            console.log("스페이스 누름")
+            if(jumpCnt < 2){ // 2단 점프까지만 가능
+                myball.y-=50;
+                jumpCnt++;
+            }
+        }else if(e.keyCode == 17){ // ctrl keycode
+            myball.y = 385;
+        }
+    })
+
+    // 장애물 클래스
+    class hurdle {
+        x = 500;
+        y = 370;
+        width = 30;
+        height = 30;
+        
+        hurdleDraw(){
+            tool.fillStyle = 'red';
+            tool.fillRect(this.x,this.y,this.width,this.height);
+        }
+    }
+    
+    // game ui
+    class background {
+        nowPoint = 0;
+        nowLife = "♥♥♥";
+
+        pointDraw(){ // 점수판
+            tool.strokeStyle = "black"
+            tool.font = '30px serif'
+            tool.strokeText("Point : "+this.nowPoint,600,50)
+        }
+        
+        lifeDraw(){ // 남은 목숨
+            tool.strokeStyle = "black"
+            tool.font = '30px serif'
+            tool.fillStyle = "red"
+            tool.fillText(this.nowLife,100,50)
+        }
+
+        gameoverDraw(){ // 게임 종료 화면
+            tool.font = '100px serif'
+            tool.fillStyle = "black"
+            tool.fillText("Game Over",130,200)
+        }
+    }
+
+
+    var crashFlag = false; // 충돌시 true
+    var crashCnt = 0; // 충돌횟수 저장
+    // 충돌감지
+    const crash = (hurdle,myball) => {
+        if((hurdle.x < myball.x + myball.radi) &&
+        (hurdle.x + hurdle.width > myball.x - myball.radi) &&
+        (hurdle.y < myball.y + myball.radi) &&
+        (hurdle.y + hurdle.height > myball.y - myball.radi)){
+            return false;
+        }
+        return true;
+    }
+    // 충돌시 카운트
+    const nowCrash = () => {
+        if(crashFlag){ 
+            crashCnt++;
+            crashFlag = false;
+        }
+    }
+
+    // 장애물 위치 초기화
+    const setHurdle = (hurdle) => {
+        if(hurdle.x < -30){
+            nowCrash()
+            hurdle.x = 500;
+            b.nowPoint += 100;
+        }
+    }
+
+    var cnt = 0; // 초당 프레임 조정 변수
+    var h = new hurdle(); // 첫번째 장애물 객체 생성
+    var h2 = new hurdle(); // 두번째 장애물 객체 생성
+    var h3 = new hurdle(); // 세번째 장애물 객체 생성
+    var hFlag = false; // 두번째 장애물 생성 플래그
+    var b = new background(); // 배경 객체 생성
+
+    h3.x = 820;
+    h3.width = 60;
+    var speed = 4;
+
+    function reDraw(){
+        let now = requestAnimationFrame(reDraw)
+        cnt++;
+        if(cnt%2 == 0){ // 장애물 이동
+            tool.clearRect(0,0,gameRoom.width,gameRoom.height)
+            setHurdle(h);
+            setHurdle(h2);
+            setHurdle(h3);
+            if(h.x < 300){
+                h2.y = 330;
+                hFlag = true;
+            }
+            h.x-=speed;
+            h.hurdleDraw();
+            h3.x-=speed;
+            h3.hurdleDraw();
+            if(hFlag){
+                h2.x -=speed;
+                h2.hurdleDraw();
+            }
+            myball.ballDraw();
+            b.pointDraw();
+            if(crashCnt<3){ // 3번째엔 더이상 그리지 않음
+                b.lifeDraw();
+            }
+            (cnt % 1000 == 0)?(speed++):(null)
+        }else if(cnt%1 == 0){ // 공 착지
+            (myball.y < 385)?(myball.y+=2):(jumpCnt = 0)
+        }
+
+        crash(h,myball)?(null):(crashFlag = true)
+        crash(h2,myball)?(null):(crashFlag = true)
+        crash(h3,myball)?(null):(crashFlag = true)
+
+        switch(crashCnt){
+            case 1:
+                b.nowLife = "♥♥"
+                break;
+            case 2:
+                b.nowLife = "♥"
+                break;
+            case 3: // 게임 종료
+                b.nowLife = "";
+                b.lifeDraw();
+                b.gameoverDraw()
+                cancelAnimationFrame(now)
+                break;
+        }
+        
+    }
+    
+    reDraw(); // 실행
+    
+    
+</script>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<style>
+   body{
+        background-image: url(./img/background.webp);
+    }
+
+    #gameRoom {
+        border: 1px solid;
+        /* solid는 겉에 선크기 지정 */
+    }
+    div{
+        float: left;
+        margin: 0px 400px auto;
+        color: white;
+    }
+    a{
+        background-image: url(./img/aimGod_background.jpg);
+        float: left;
+        margin: 0px 400px auto;
+    }
+</style>
+
+<body>
+    <a>
+        <canvas id="gameRoom" width="400" height="400"></canvas>
+    </a>
+    <div>
+        <span>point : </span><span id="point">0</span>
+    </div>
+    <div>
+        <span>timer : </span><span id="timer">10</span>
+    </div>
+</body>
+</html>
+
+<script>
+    const gameRoom = document.getElementById('gameRoom');
+    const point = document.getElementById('point');
+    const timer = document.getElementById('timer');
+    var tool = gameRoom.getContext('2d');
+
+    const randPoint = (min,max) => { // 랜덤 정수 생성
+        return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    class target { // target class
+        x = randPoint(10,391);
+        y = randPoint(10,391);
+        radi = 5;
+        nowColor = "red"
+        drawTarget(){
+            tool.beginPath();
+            tool.strokeStyle = "red"
+            tool.fillStyle = this.nowColor;
+            tool.arc(this.x,this.y,this.radi,0,(Math.PI/180)*360,false)
+            tool.stroke();
+            tool.fill();
+        }
+    }
+
+    const gameSet = () => { // 게임 종료 화면
+        tool.font = '50px serif'
+        tool.fillStyle = "white"
+        tool.fillText("Game Over",80,200)
+    }
+
+    var targetArr = []; // 나오는 타켓 배열에 저장
+
+    const myInterval = setInterval(() => { // timer interval
+        let t = new target();
+        tool.clearRect(0,0,gameRoom.width,gameRoom.height);
+        targetArr.push(t);
+        reDraw();
+        console.log("target : "+t.x+"/"+t.y)
+        timer.innerHTML--;
+        if(timer.innerHTML == 0){ // 0초 일 경우 게임 종료
+            clearInterval(myInterval);
+            gameSet();
+            eventFlag = false; // 이벤트 감지 종료
+            console.log(targetArr.length);
+        }
+    }, 1000);
+
+    const reDraw = () => { // 배열에 담긴 타겟 다시 그리는 함수
+        for(v of targetArr){
+            (v != null)?(v.drawTarget()):(null)
+        }
+    }
+
+    const targetArea = (x,y) => { // 타깃 범위 마우스로 클릭한 좌표를 인자값으로 받음
+        for(i in targetArr){
+            if((targetArr[i].x - targetArr[i].radi) < x &&
+            (targetArr[i].x + targetArr[i].radi) > x &&
+            (targetArr[i].y - targetArr[i].radi) < y &&
+            (targetArr[i].y + targetArr[i].radi) > y){
+                return i; // 타깃 찾으면 배열 인덱스 리턴
+            }
+        }
+        return -1; // 타깃 없으면 -1 리턴
+    }
+
+    var eventFlag = true; // 이벤트 감지 플래그
+
+    // 클릭 이벤트 감지
+    const myEvent = window.addEventListener('click', (e) => {
+        console.log((e.clientX-408)+"/"+(e.clientY-8)); // 디버깅용 xpoint -408 ypoint -8 보정 필요
+        let idx = targetArea((e.clientX-408),(e.clientY-8));
+        if(eventFlag){
+            if(idx != -1){
+                targetArr[idx].nowColor = "yellow";
+                targetArr[idx].drawTarget(); // 맞춘 effect 다시 그리기
+                point.innerHTML = parseInt(point.innerHTML) + 100; // 점수 +100
+                timer.innerHTML++; // 시간 ++
+                setTimeout(() => {
+                    targetArr.splice(idx,1); // 타깃 삭제
+                }, 500);
+            }
+        }
+    })
+
+
+</script>

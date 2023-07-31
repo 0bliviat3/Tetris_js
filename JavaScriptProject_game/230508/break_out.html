@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+
+</head>
+<style>
+
+    body{
+        background-image: url(./img/background.webp);
+    }
+
+    #gameRoom {
+        border: 1px solid;
+    }
+
+    div {
+        float: left;
+        margin: 0px 50px auto;
+    }
+
+    canvas {
+        background-image: url(./img/break_out_background.jpg);
+    }
+
+    footer {
+        width: 800px;
+        height: 40px;
+        float: left;
+        color:white;
+    }
+</style>
+
+<body>
+    <div>
+        <canvas id="gameRoom" width="500" height="400">
+        </canvas>
+    </div>    
+</body>
+<footer>
+    <div> point : <span id="point"> </span></div>
+    <div> run time : <span id="time"></span></div>
+</footer>
+
+</html>
+<script>
+    var mycanvas = document.getElementById("gameRoom");
+    var ctx = mycanvas.getContext("2d");
+    var x = (mycanvas.width - 75) / 2;
+    var y = mycanvas.height - 10;
+    var dx = 2;
+    var dy = -2;
+    var r = 10;
+    const paddleHeight = 10;
+    const paddleWidth = 75;
+    var paddleX = (mycanvas.width - paddleWidth) / 2;
+    var paddleY = (mycanvas.height - paddleHeight);
+    var brickRowCount = 3;
+    var brickColumnCount = 5;
+    var brickWidth = 75;
+    var brickHeight = 20;
+    var brickPadding = 10;
+    var brickoffsetTop = 30;
+    var brickoffsetLeft = 30;
+    var leftPressed = false;
+    var rightPressed = false;
+    var bricks = [];
+    var point = 0;
+    var time = 0;
+    var cnt = 15;
+
+    for (var c = 0; c < brickColumnCount; c++) {
+        bricks[c] = [];
+        for (var r = 0; r < brickRowCount; r++) {
+            bricks[c][r] = { x: 0, y: 0, status: 1 };
+        }
+    }
+
+    function drawBrick() {
+        for (var c = 0; c < brickColumnCount; c++) {
+            for (var r = 0; r < brickRowCount; r++) {
+                if (bricks[c][r].status == 1) {
+                    var brickX = (c * (brickWidth + brickPadding)) + brickoffsetLeft;
+                    var brickY = (r * (brickHeight + brickPadding)) + brickoffsetTop;
+                    bricks[c][r].x = brickX;
+                    bricks[c][r].y = brickY;
+                    ctx.beginPath();
+                    ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                    ctx.fillStyle = "rgb(32, 217, 250)";
+                    ctx.fill();
+                    ctx.closePath();
+                }
+            }
+        }
+    }
+
+    //벽돌 충돌감지
+    function collisionDetection() {
+        for (var c = 0; c < brickColumnCount; c++) {
+            for (var r = 0; r < brickRowCount; r++) {
+                var b = bricks[c][r];
+                if (b.status == 1) {
+                    if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+                        dy = -dy;
+                        b.status = 0;
+                        cnt -= 1;
+                        point += 100;
+                        document.getElementById("point").innerHTML = point;
+                        if (cnt == 0) {
+                            time = 0;
+                            point = 0;
+                            alert("참 잘했어요. 다음 stage에서 만나요.")
+                            clearInterval(interval);
+                            clearInterval(timeInterval);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    function draw() {
+        ctx.clearRect(0, 0, mycanvas.width, mycanvas.height);
+        drawBrick();
+        drawBall();
+        drawPaddle();
+        ballmove();
+        collisionDetection();
+    }
+
+    function ballmove() {
+        if (x + dx > mycanvas.width - r || x + dx < r) {    //좌우 벽에 닿으면 방향전환
+            dx = -dx;
+        }
+        if (y + dy < r) {   //상하 벽에 닿으면 방향전환
+            dy = -dy;
+        }
+        if (y + dy > mycanvas.height - r) {
+            if (paddleX < x + dx && x + dx < paddleX + paddleWidth) {
+                dy = -dy;
+            } else {
+                alert("Game Over" + "\n" + "point:" + point + "\n" + "게임시간:" + time);
+                document.location.reload();
+                clearInterval(interval);
+                clearInterval(timeInterval);
+            }
+        }
+        if (rightPressed && paddleX < mycanvas.width - paddleWidth) {
+            paddleX += 7;
+        }
+        else if (leftPressed && paddleX > 0) {
+            paddleX -= 7;
+        }
+        if (time >= 5 && time % 5 == 0) {
+            x += 0.3;
+            y += 0.3;
+        }
+        x += dx;
+        y += dy;
+    }
+
+    //공 만들기
+    function drawBall() {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgb(246, 32, 250)";
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    var interval = setInterval(draw, 10);
+
+    // paddle 만들기
+    function drawPaddle() {
+        ctx.beginPath();
+        ctx.rect(paddleX, paddleY, paddleWidth, paddleHeight);
+        ctx.fillStyle = "rgb(245, 255, 107)";
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    //방향키 눌렀을때 리스너 작동설정
+    document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keyup", keyUpHandler, false);
+
+    // 키눌러서 방향 전환 
+    function keyDownHandler(e) {
+        if (e.key == 37 || e.key == "ArrowLeft") {
+            leftPressed = true;
+        }
+        else if (e.key == 39 || e.key == "ArrowRight") {
+            rightPressed = true;
+        }
+    }
+    //키 안눌렀을때 , 해당변수들 초기화 
+    function keyUpHandler(e) {
+        if (e.key == 37 || e.key == "ArrowLeft") {
+            leftPressed = false;
+        }
+        else if (e.key == 39 || e.key == "ArrowRight") {
+            rightPressed = false;
+        }
+    }
+    //런타임 표시 
+    const timeInterval = setInterval(() => {
+        time += 1;
+        document.getElementById("time").innerHTML = time;
+    }, 1000);
+
+</script>
